@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Centro Comercial Ponta de Humaitá</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body{background:#f4f6f9;font-family:'Segoe UI', sans-serif;}
+.topo{
+background:linear-gradient(135deg,#ff5722,#ff9800);
+color:white;
+padding:30px 20px 70px 20px;
+text-align:center;
+position:relative;
+}
+.logo-central{
+width:120px;
+border-radius:50%;
+display:block;
+margin:0 auto 15px auto;
+box-shadow:0 5px 15px rgba(0,0,0,0.3);
+}
+.botoes-topo{position:absolute;top:15px;right:15px;}
+.btn-admin{background:#222;color:white;}
+.btn-inicio-central{
+position:absolute;
+bottom:-25px;
+left:50%;
+transform:translateX(-50%);
+background:white;
+color:#ff5722;
+font-weight:bold;
+border-radius:30px;
+padding:8px 25px;
+box-shadow:0 5px 15px rgba(0,0,0,0.2);
+}
+.card-servico{
+border:none;
+border-radius:20px;
+transition:0.3s;
+cursor:pointer;
+}
+.card-servico:hover{transform:translateY(-5px);}
+.card-servico img{
+height:180px;
+object-fit:cover;
+border-top-left-radius:20px;
+border-top-right-radius:20px;
+}
+.btn-whatsapp{background:#25d366;color:white;border:none;}
+#painelAdmin{
+display:none;
+background:white;
+padding:20px;
+border-radius:20px;
+box-shadow:0 5px 20px rgba(0,0,0,0.1);
+margin-bottom:20px;
+}
+.carousel-item img{
+height:300px;
+object-fit:cover;
+}
+</style>
+</head>
+<body>
+
+<div class="topo">
+<img src="logo.png" class="logo-central">
+<h2>CENTRO COMERCIAL PONTA DE HUMAITÁ</h2>
+<p>Os melhores profissionais da sua região</p>
+
+<div class="botoes-topo">
+<button class="btn btn-admin shadow" onclick="loginAdmin()">🔒 Admin</button>
+</div>
+
+<button class="btn btn-inicio-central shadow" onclick="inicio()">🗼 Início</button>
+</div>
+
+<div class="container mt-5">
+
+<input type="text" id="buscar" class="form-control mb-4" placeholder="Buscar serviço..." onkeyup="renderizar()">
+
+<div id="painelAdmin">
+<h5>Painel Administrativo</h5>
+<input type="hidden" id="editIndex">
+
+<input type="text" id="nome" class="form-control mb-2" placeholder="Nome">
+<input type="text" id="categoria" class="form-control mb-2" placeholder="Categoria">
+<textarea id="descricao" class="form-control mb-2" placeholder="Descrição"></textarea>
+<input type="text" id="telefone" class="form-control mb-2" placeholder="WhatsApp">
+
+<label><strong>Foto de Capa</strong></label>
+<input type="file" id="capa" class="form-control mb-2">
+
+<label><strong>Adicionar Fotos</strong></label>
+<input type="file" id="fotos" class="form-control mb-2" multiple>
+
+<button class="btn btn-success w-100 mb-2" onclick="salvarServico()">Salvar Serviço</button>
+
+<button class="btn btn-dark w-100 mb-3" onclick="gerarCodigoFinal()">
+Gerar Código Atualizado para GitHub
+</button>
+
+<textarea id="codigoFinal" class="form-control" rows="10"></textarea>
+
+<div id="listaAdmin" class="mt-3"></div>
+</div>
+
+<div class="row" id="lista"></div>
+
+</div>
+
+<div class="modal fade" id="modalDetalhe">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-body" id="conteudoModal"></div>
+</div>
+</div>
+</div>
+
+<script>
+
+const HASH_CORRETO = "91ddcdc211e6bff86d164f9347c5f132107d010d29509f8149eedad5cefe01a3";
+let tentativas = 0;
+let bloqueado = false;
+
+function gerarHash(texto){
+const encoder = new TextEncoder();
+const data = encoder.encode(texto);
+return crypto.subtle.digest("SHA-256", data).then(hashBuffer => {
+const hashArray = Array.from(new Uint8Array(hashBuffer));
+return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+});
+}
+
+function loginAdmin(){
+if(bloqueado){alert("Sistema bloqueado temporariamente.");return;}
+let senha = prompt("Digite a senha do admin:");
+if(!senha) return;
+gerarHash(senha).then(hashDigitado => {
+if(hashDigitado === HASH_CORRETO){
+document.getElementById("painelAdmin").style.display="block";
+renderizarAdmin();
+tentativas=0;
+}else{
+tentativas++;
+alert("Senha incorreta!");
+if(tentativas>=3){
+bloqueado=true;
+setTimeout(()=>{bloqueado=false;tentativas=0;},30000);
+}
+}
+});
+}
+
+/* ===== BASE FIXA ===== */
+let BASE_SERVICOS = [];
+let servicos = [...BASE_SERVICOS];
+
+function inicio(){
+document.getElementById("buscar").value="";
+document.getElementById("painelAdmin").style.display="none";
+renderizar();
+}
+
+function salvarServico(){
+let nome=document.getElementById("nome").value;
+let categoria=document.getElementById("categoria").value;
+let descricao=document.getElementById("descricao").value;
+let telefone=document.getElementById("telefone").value;
+let capaInput=document.getElementById("capa");
+let fotosInput=document.getElementById("fotos");
+let editIndex=document.getElementById("editIndex").value;
+
+if(!nome||!categoria||!telefone){alert("Preencha os campos obrigatórios");return;}
+
+let antigo=editIndex!==""?servicos[editIndex]:null;
+let novasFotos=[];
+let arquivos=fotosInput.files;
+
+function finalizar(capaBase64){
+let fotosFinal=antigo&&antigo.fotos?[...antigo.fotos]:[];
+novasFotos.forEach(f=>fotosFinal.push(f));
+
+let novo={
+nome,categoria,descricao,telefone,
+capa:capaBase64||(antigo?antigo.capa:""),
+fotos:fotosFinal
+};
+
+if(editIndex===""){servicos.push(novo);}
+else{servicos[editIndex]=novo;document.getElementById("editIndex").value="";}
+
+renderizar();
+renderizarAdmin();
+limpar();
+}
+
+function lerCapa(){
+if(capaInput.files[0]){
+let reader=new FileReader();
+reader.onload=e=>finalizar(e.target.result);
+reader.readAsDataURL(capaInput.files[0]);
+}else{finalizar(null);}
+}
+
+if(arquivos.length===0){lerCapa();}
+else{
+let lidos=0;
+for(let i=0;i<arquivos.length;i++){
+let reader=new FileReader();
+reader.onload=e=>{
+novasFotos.push(e.target.result);
+lidos++;
+if(lidos===arquivos.length){lerCapa();}
+}
+reader.readAsDataURL(arquivos[i]);
+}
+}
+}
+
+function gerarCodigoFinal(){
+let codigo="let BASE_SERVICOS = "+JSON.stringify(servicos,null,4)+";";
+document.getElementById("codigoFinal").value=codigo;
+}
+
+function limpar(){
+document.getElementById("nome").value="";
+document.getElementById("categoria").value="";
+document.getElementById("descricao").value="";
+document.getElementById("telefone").value="";
+document.getElementById("capa").value="";
+document.getElementById("fotos").value="";
+}
+
+function renderizar(){
+let busca=document.getElementById("buscar").value.toLowerCase();
+let lista=document.getElementById("lista");
+lista.innerHTML="";
+
+servicos.filter(s=>
+s.nome.toLowerCase().includes(busca)||
+s.categoria.toLowerCase().includes(busca)
+).forEach((s,index)=>{
+let fotoPrincipal=s.capa||(s.fotos.length>0?s.fotos[0]:'https://via.placeholder.com/400x200');
+lista.innerHTML+=`
+<div class="col-lg-4 col-md-6 col-12 mb-4">
+<div class="card card-servico shadow" onclick="abrirDetalhe(${index})">
+<img src="${fotoPrincipal}">
+<div class="card-body">
+<h5>${s.nome}</h5>
+<strong>${s.categoria}</strong>
+</div>
+</div>
+</div>`;
+});
+}
+
+function abrirDetalhe(index){
+let s=servicos[index];
+let carouselId="carousel"+index;
+let todasFotos=[];
+if(s.capa) todasFotos.push(s.capa);
+if(s.fotos&&s.fotos.length>0) todasFotos=todasFotos.concat(s.fotos);
+if(todasFotos.length===0) todasFotos.push("https://via.placeholder.com/800x400");
+
+let fotosHTML="";
+todasFotos.forEach((f,i)=>{
+fotosHTML+=`
+<div class="carousel-item ${i===0?'active':''}">
+<img src="${f}" class="d-block w-100">
+</div>`;
+});
+
+document.getElementById("conteudoModal").innerHTML=`
+<div id="${carouselId}" class="carousel slide mb-3" data-bs-ride="carousel">
+<div class="carousel-inner">${fotosHTML}</div>
+${todasFotos.length>1?`
+<button class="carousel-control-prev" type="button" data-bs-target="#${carouselId}" data-bs-slide="prev">
+<span class="carousel-control-prev-icon"></span>
+</button>
+<button class="carousel-control-next" type="button" data-bs-target="#${carouselId}" data-bs-slide="next">
+<span class="carousel-control-next-icon"></span>
+</button>`:""}
+</div>
+<h4>${s.nome}</h4>
+<strong>${s.categoria}</strong>
+<p class="mt-2">${s.descricao}</p>
+<a href="https://wa.me/55${s.telefone}" target="_blank" class="btn btn-whatsapp w-100 mt-2">
+Falar no WhatsApp
+</a>`;
+
+new bootstrap.Modal(document.getElementById('modalDetalhe')).show();
+}
+
+function renderizarAdmin(){
+let listaAdmin=document.getElementById("listaAdmin");
+listaAdmin.innerHTML="<h6>Gerenciar Serviços</h6>";
+servicos.forEach((s,index)=>{
+listaAdmin.innerHTML+=`
+<div class="d-flex justify-content-between align-items-center border p-2 mb-2 rounded">
+<span>${s.nome} - ${s.categoria}</span>
+<div>
+<button class="btn btn-sm btn-primary" onclick="editar(${index})">Editar</button>
+<button class="btn btn-sm btn-danger" onclick="excluir(${index})">Excluir</button>
+</div>
+</div>`;
+});
+}
+
+function editar(index){
+let s=servicos[index];
+document.getElementById("nome").value=s.nome;
+document.getElementById("categoria").value=s.categoria;
+document.getElementById("descricao").value=s.descricao;
+document.getElementById("telefone").value=s.telefone;
+document.getElementById("editIndex").value=index;
+window.scrollTo(0,0);
+}
+
+function excluir(index){
+if(confirm("Deseja excluir este serviço?")){
+servicos.splice(index,1);
+renderizar();
+renderizarAdmin();
+}
+}
+
+renderizar();
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
