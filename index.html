@@ -134,7 +134,19 @@ alert("Senha incorreta!");
 });
 }
 
-let BASE_SERVICOS = [];
+let BASE_SERVICOS = [let BASE_SERVICOS = [
+    {
+        "nome": "Luciane",
+        "categoria": "Manicure",
+        "descricao": "Manicure em geral",
+        "telefone": "71986850041",
+        "capa": "imagens/lu1.jpg",
+        "fotos": [
+            "imagens/lu2.png",
+            "imagens/lu3.jpg"
+        ]
+    }
+];];
 let servicos = [...BASE_SERVICOS];
 
 function salvarServico(){
@@ -243,4 +255,5 @@ renderizar();
 </script>
 
 </body>
+
 </html>
